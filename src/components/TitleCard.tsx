@@ -1,21 +1,28 @@
 import { useState } from "react";
-import { BadgeCheck, ChevronDown, Clock, IndianRupee, TrendingUp } from "lucide-react";
+import {
+  BadgeCheck,
+  ChevronDown,
+  Clock,
+  IndianRupee,
+  Sprout,
+  TrendingUp,
+} from "lucide-react";
 import type { HindiStatus, Title } from "@/data/catalog";
 import { cn } from "@/lib/utils";
 
 const HINDI: Record<HindiStatus, { dot: string; label: string; chip: string }> = {
   verified: {
-    dot: "🟢",
+    dot: "bg-neon",
     label: "Verified",
     chip: "bg-neon/15 text-neon border-neon/40",
   },
   user: {
-    dot: "🟡",
+    dot: "bg-warn",
     label: "User Confirmed",
     chip: "bg-warn/15 text-warn border-warn/40",
   },
   none: {
-    dot: "⚪",
+    dot: "bg-inert",
     label: "Unverified (Subtitles Only)",
     chip: "bg-inert/10 text-inert border-inert/30",
   },
@@ -45,7 +52,8 @@ export function TitleCard({ title, onOpen }: { title: Title; onOpen: (t: Title) 
               {title.name}
             </h3>
             <span className="shrink-0 rounded-md bg-tomato/15 px-1.5 py-0.5 text-[0.7rem] font-bold text-tomato">
-              🍅 {title.tomato}%
+              <Sprout className="mr-0.5 inline size-3 align-[-2px]" />
+              {title.tomato}%
             </span>
           </div>
 
@@ -68,7 +76,8 @@ export function TitleCard({ title, onOpen }: { title: Title; onOpen: (t: Title) 
                 hindi.chip,
               )}
             >
-              {hindi.dot} Hindi Audio: {hindi.label}
+              <span className={cn("size-2 rounded-full", hindi.dot)} aria-hidden />
+              Hindi Audio: {hindi.label}
               {title.verifiedOn ? ` · ${title.verifiedOn}` : ""}
             </span>
           </div>
