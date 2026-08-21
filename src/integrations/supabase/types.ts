@@ -14,13 +14,176 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      search_cache: {
+        Row: {
+          analysis: string | null
+          created_at: string
+          hit_count: number
+          id: string
+          language: string
+          platform: string
+          query_norm: string
+          raw_query: string
+          results: Json
+          updated_at: string
+        }
+        Insert: {
+          analysis?: string | null
+          created_at?: string
+          hit_count?: number
+          id?: string
+          language?: string
+          platform?: string
+          query_norm: string
+          raw_query: string
+          results?: Json
+          updated_at?: string
+        }
+        Update: {
+          analysis?: string | null
+          created_at?: string
+          hit_count?: number
+          id?: string
+          language?: string
+          platform?: string
+          query_norm?: string
+          raw_query?: string
+          results?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      taste_profiles: {
+        Row: {
+          created_at: string
+          id: string
+          interactions: number
+          searches: Json
+          subject_key: string
+          updated_at: string
+          user_id: string | null
+          weights: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          interactions?: number
+          searches?: Json
+          subject_key: string
+          updated_at?: string
+          user_id?: string | null
+          weights?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          interactions?: number
+          searches?: Json
+          subject_key?: string
+          updated_at?: string
+          user_id?: string | null
+          weights?: Json
+        }
+        Relationships: []
+      }
+      titles: {
+        Row: {
+          analysis: string | null
+          audio_tracks: string[]
+          availability_ok: boolean
+          box_office: string | null
+          budget: string | null
+          category: string | null
+          created_at: string
+          genres: string[]
+          hindi_status: string
+          hindi_verified_on: string | null
+          id: string
+          last_checked_at: string
+          name: string
+          platform: string | null
+          poster_url: string | null
+          rating_imdb: number | null
+          rating_rt: number | null
+          runtime: string | null
+          slug: string
+          stream_url: string | null
+          updated_at: string
+          year: number | null
+        }
+        Insert: {
+          analysis?: string | null
+          audio_tracks?: string[]
+          availability_ok?: boolean
+          box_office?: string | null
+          budget?: string | null
+          category?: string | null
+          created_at?: string
+          genres?: string[]
+          hindi_status?: string
+          hindi_verified_on?: string | null
+          id?: string
+          last_checked_at?: string
+          name: string
+          platform?: string | null
+          poster_url?: string | null
+          rating_imdb?: number | null
+          rating_rt?: number | null
+          runtime?: string | null
+          slug: string
+          stream_url?: string | null
+          updated_at?: string
+          year?: number | null
+        }
+        Update: {
+          analysis?: string | null
+          audio_tracks?: string[]
+          availability_ok?: boolean
+          box_office?: string | null
+          budget?: string | null
+          category?: string | null
+          created_at?: string
+          genres?: string[]
+          hindi_status?: string
+          hindi_verified_on?: string | null
+          id?: string
+          last_checked_at?: string
+          name?: string
+          platform?: string | null
+          poster_url?: string | null
+          rating_imdb?: number | null
+          rating_rt?: number | null
+          runtime?: string | null
+          slug?: string
+          stream_url?: string | null
+          updated_at?: string
+          year?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      match_cached_search: {
+        Args: {
+          _language: string
+          _platform: string
+          _query: string
+          _threshold?: number
+        }
+        Returns: {
+          analysis: string
+          id: string
+          raw_query: string
+          results: Json
+          similarity: number
+          updated_at: string
+        }[]
+      }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       [_ in never]: never
