@@ -203,9 +203,12 @@ export async function findAvailability(
     platforms.map(async (platform) => {
       const domain = PLATFORM_DOMAINS[platform]!;
       const items = await cse(`site:${domain} "Hindi" "${name}"`, 3);
-      const match = items.find((i) => i.title.toLowerCase().includes(name.toLowerCase().slice(0, 12))) ?? items[0];
+      const match =
+        items.find((i) => i.title.toLowerCase().includes(name.toLowerCase().slice(0, 12))) ??
+        items[0];
       if (!match) return null;
-      return { platform, url: match.link, hindi: items.some(looksHindi) } satisfies Availability;
+      const entry: Availability = { platform, url: match.link, hindi: items.some(looksHindi) };
+      return entry;
     }),
   );
 
@@ -444,7 +447,7 @@ export async function writeCache(args: {
 export type TasteEvent = {
   type: "click" | "save" | "search";
   value: string;
-  weight?: number;
+  weight?: number | undefined;
 };
 
 export async function applyTasteEvents(subjectKey: string, events: TasteEvent[]) {
