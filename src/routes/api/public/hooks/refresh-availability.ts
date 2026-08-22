@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import type { HindiStatus } from "@/lib/ott.server";
+
 /**
  * Daily maintenance job (GitHub Actions cron or pg_cron).
  * Re-checks the oldest stored titles: verifies the streaming URL still resolves
@@ -62,7 +64,7 @@ export const Route = createFileRoute("/api/public/hooks/refresh-availability")({
           let live = row.stream_url ? await ott.isUrlLive(row.stream_url) : false;
           let platform = row.platform;
           let streamUrl = row.stream_url;
-          let hindiStatus = row.hindi_status as ott.HindiStatus;
+          let hindiStatus = row.hindi_status as HindiStatus;
 
           if (!live) {
             const availability = await ott.findAvailability(row.name, platform ?? "");
@@ -72,7 +74,7 @@ export const Route = createFileRoute("/api/public/hooks/refresh-availability")({
               streamUrl = chosen.url;
               live = Boolean(chosen.url);
             }
-            const nextStatus: ott.HindiStatus = chosen?.hindi
+            const nextStatus: HindiStatus = chosen?.hindi
               ? "verified"
               : availability.some((a) => a.hindi)
                 ? "user"

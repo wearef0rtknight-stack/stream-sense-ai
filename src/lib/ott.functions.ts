@@ -38,7 +38,7 @@ export const searchOtt = createServerFn({ method: "POST" })
         source: "cache" as const,
         ms: Date.now() - started,
         analysis: cached.analysis ?? "",
-        results: (cached.results ?? []) as ott.ResolvedTitle[],
+        results: (cached.results ?? []) as ResolvedTitle[],
       };
     }
 
