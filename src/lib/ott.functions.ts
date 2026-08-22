@@ -1,6 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+import type { ResolvedTitle } from "./ott.server";
+
+
 const searchInput = z.object({
   query: z.string().min(2).max(200),
   platform: z.string().max(40).default(""),
@@ -35,7 +38,7 @@ export const searchOtt = createServerFn({ method: "POST" })
         source: "cache" as const,
         ms: Date.now() - started,
         analysis: cached.analysis ?? "",
-        results: (cached.results ?? []) as ott.ResolvedTitle[],
+        results: (cached.results ?? []) as ResolvedTitle[],
       };
     }
 

@@ -10,33 +10,44 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicHooksRefreshAvailabilityRouteImport } from './routes/api/public/hooks/refresh-availability'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksRefreshAvailabilityRoute =
+  ApiPublicHooksRefreshAvailabilityRouteImport.update({
+    id: '/api/public/hooks/refresh-availability',
+    path: '/api/public/hooks/refresh-availability',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/public/hooks/refresh-availability': typeof ApiPublicHooksRefreshAvailabilityRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/public/hooks/refresh-availability': typeof ApiPublicHooksRefreshAvailabilityRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/public/hooks/refresh-availability': typeof ApiPublicHooksRefreshAvailabilityRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/api/public/hooks/refresh-availability'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/api/public/hooks/refresh-availability'
+  id: '__root__' | '/' | '/api/public/hooks/refresh-availability'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiPublicHooksRefreshAvailabilityRoute: typeof ApiPublicHooksRefreshAvailabilityRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +59,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/refresh-availability': {
+      id: '/api/public/hooks/refresh-availability'
+      path: '/api/public/hooks/refresh-availability'
+      fullPath: '/api/public/hooks/refresh-availability'
+      preLoaderRoute: typeof ApiPublicHooksRefreshAvailabilityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiPublicHooksRefreshAvailabilityRoute:
+    ApiPublicHooksRefreshAvailabilityRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
