@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DiagnosticsRouteImport } from './routes/diagnostics'
 import { Route as ApiPublicHooksRefreshAvailabilityRouteImport } from './routes/api/public/hooks/refresh-availability'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DiagnosticsRoute = DiagnosticsRouteImport.update({
+  id: '/diagnostics',
+  path: '/diagnostics',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicHooksRefreshAvailabilityRoute =
@@ -26,27 +32,32 @@ const ApiPublicHooksRefreshAvailabilityRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/diagnostics': typeof DiagnosticsRoute
   '/api/public/hooks/refresh-availability': typeof ApiPublicHooksRefreshAvailabilityRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/diagnostics': typeof DiagnosticsRoute
   '/api/public/hooks/refresh-availability': typeof ApiPublicHooksRefreshAvailabilityRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/diagnostics': typeof DiagnosticsRoute
   '/api/public/hooks/refresh-availability': typeof ApiPublicHooksRefreshAvailabilityRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/public/hooks/refresh-availability'
+  fullPaths: '/' | '/diagnostics' | '/api/public/hooks/refresh-availability'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/public/hooks/refresh-availability'
-  id: '__root__' | '/' | '/api/public/hooks/refresh-availability'
+  to: '/' | '/diagnostics' | '/api/public/hooks/refresh-availability'
+  id:
+    '__root__' | '/' | '/diagnostics' | '/api/public/hooks/refresh-availability'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DiagnosticsRoute: typeof DiagnosticsRoute
   ApiPublicHooksRefreshAvailabilityRoute: typeof ApiPublicHooksRefreshAvailabilityRoute
 }
 
@@ -57,6 +68,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/diagnostics': {
+      id: '/diagnostics'
+      path: '/diagnostics'
+      fullPath: '/diagnostics'
+      preLoaderRoute: typeof DiagnosticsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/refresh-availability': {
@@ -71,6 +89,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DiagnosticsRoute: DiagnosticsRoute,
   ApiPublicHooksRefreshAvailabilityRoute:
     ApiPublicHooksRefreshAvailabilityRoute,
 }
