@@ -1,6 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Flame, RotateCcw, SlidersHorizontal, Sparkles } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
+import { Activity, Flame, Loader2, RotateCcw, SlidersHorizontal, Sparkles, Zap } from "lucide-react";
+import { searchOtt } from "@/lib/ott.functions";
+import { LiveResultCard } from "@/components/LiveResultCard";
 import {
   AUDIO,
   CATEGORIES,
@@ -41,6 +45,18 @@ function Home() {
   const [tags, setTags] = useState<string[]>([]);
   const { bump, reset, hydrated, topCategories, topGenres, score, interactions, taste } =
     useTaste();
+
+  const runSearch = useServerFn(searchOtt);
+  const liveQuery = tags.join(" ").trim();
+  const platform = plats[0] ?? "";
+  const language = audio.includes("Only Hindi Dubbed") ? "Hindi" : audio.join(", ");
+
+  const live = useQuery({
+    queryKey: ["ott-search", liveQuery, platform, language],
+    enabled: liveQuery.length >= 2,
+    staleTime: 5 * 60_000,
+    queryFn: () => runSearch({ data: { query: liveQuery, platform, language } }),
+  });
 
   const results = useMemo(() => {
     return TITLES.filter((t) => {
@@ -129,6 +145,70 @@ function Home() {
             checkable={["Only Hindi Dubbed"]}
           />
         </div>
+
+        {/* Live AI results */}
+        {liveQuery.length >= 2 ? (
+          <section className="space-y-3">
+            <div className="flex items-center justify-between px-5">
+              <h2 className="inline-flex items-center gap-2 font-display text-lg font-semibold">
+                <Zap className="size-4 text-neon" />
+                Live AI results
+              </h2>
+              <span className="inline-flex items-center gap-1 text-[0.68rem] text-muted-foreground">
+                {live.isFetching ? (
+                  <>
+                    <Loader2 className="size-3 animate-spin" />
+                    Searching…
+                  </>
+                ) : live.data ? (
+                  <>
+                    {live.data.source === "cache" ? "cached" : live.data.source} · {live.data.ms}ms
+                  </>
+                ) : null}
+              </span>
+            </div>
+
+            {live.data?.analysis ? (
+              <p className="px-5 text-[0.75rem] leading-relaxed text-muted-foreground">
+                {live.data.analysis}
+              </p>
+            ) : null}
+
+            <div className="space-y-3 px-5">
+              {live.isError ? (
+                <p className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4 text-xs text-destructive">
+                  Live search failed. Please try again.
+                </p>
+              ) : null}
+              {live.data && "error" in live.data && live.data.error ? (
+                <p className="rounded-2xl border border-warn/40 bg-warn/10 p-4 text-xs text-warn">
+                  {live.data.error}
+                </p>
+              ) : null}
+              {live.data?.results.map((r) => (
+                <LiveResultCard
+                  key={r.slug}
+                  title={r}
+                  onOpen={() => bump({ search: r.name, platform: r.platform ?? undefined, weight: 1 })}
+                />
+              ))}
+              {live.data && !live.isFetching && live.data.results.length === 0 && !("error" in live.data && live.data.error) ? (
+                <p className="rounded-2xl border border-dashed border-border bg-surface p-4 text-center text-xs text-muted-foreground">
+                  No live matches — try a different phrase.
+                </p>
+              ) : null}
+            </div>
+            <div className="px-5">
+              <Link
+                to="/diagnostics"
+                className="inline-flex items-center gap-1 text-[0.68rem] text-muted-foreground underline-offset-4 hover:text-primary hover:underline"
+              >
+                <Activity className="size-3" />
+                Connection diagnostics
+              </Link>
+            </div>
+          </section>
+        ) : null}
 
         {/* Based on your taste */}
         {recommended.length > 0 ? (
