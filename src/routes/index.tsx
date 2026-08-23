@@ -189,7 +189,7 @@ function Home() {
                 <LiveResultCard
                   key={r.slug}
                   title={r}
-                  onOpen={() => bump({ search: r.name, platform: r.platform ?? undefined, weight: 1 })}
+                  onOpen={() => bump(r.platform ? { search: r.name, platform: r.platform, weight: 1 } : { search: r.name, weight: 1 })}
                 />
               ))}
               {live.data && !live.isFetching && live.data.results.length === 0 && !("error" in live.data && live.data.error) ? (
