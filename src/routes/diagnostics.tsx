@@ -2,12 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { Activity, CheckCircle2, KeyRound, RefreshCw, XCircle } from "lucide-react";
-import { checkCseStatus } from "@/lib/diagnostics.functions";
+import { CheckCircle2, Layers, RefreshCw, XCircle } from "lucide-react";
+import { checkSearchWaterfall } from "@/lib/diagnostics.functions";
 
-const TITLE = "Diagnostics — Custom Search Connection Status | Dubbed";
+const TITLE = "Diagnostics — Waterfall Search Engine Status | Dubbed";
 const DESC =
-  "Live status of the Google Custom Search API key and engine ID (CX) powering Hindi dubbed availability checks, with 403/400 error detail.";
+  "Live health of the four-layer search waterfall: DuckDuckGo scraper, Google scraper, SerpApi and Serper.dev powering Hindi dubbed availability checks.";
 
 export const Route = createFileRoute("/diagnostics")({
   head: () => ({
@@ -33,7 +33,7 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 function Diagnostics() {
-  const run = useServerFn(checkCseStatus);
+  const run = useServerFn(checkSearchWaterfall);
   const { mutate, data, isPending, error } = useMutation({ mutationFn: () => run({}) });
 
   useEffect(() => {
@@ -46,10 +46,10 @@ function Diagnostics() {
         System check
       </p>
       <h1 className="mt-2 font-display text-[1.75rem] font-bold leading-tight">
-        Custom Search <span className="text-gradient-neon">connection</span>
+        Waterfall <span className="text-gradient-neon">search engine</span>
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Runs a real query against Google and shows the exact status code and reason.
+        Probes each layer in priority order and reports which one answers first.
       </p>
 
       <button
@@ -72,39 +72,35 @@ function Diagnostics() {
         <section className="mt-5 space-y-4">
           <div
             className={
-              data.ok
+              data.winner
                 ? "flex items-center gap-2 rounded-2xl border border-neon/40 bg-neon/10 p-3 text-sm text-neon"
                 : "flex items-center gap-2 rounded-2xl border border-warn/40 bg-warn/10 p-3 text-sm text-warn"
             }
           >
-            {data.ok ? <CheckCircle2 className="size-4" /> : <XCircle className="size-4" />}
-            {data.ok ? "Connection healthy" : `Failing${data.httpStatus ? ` (${data.httpStatus})` : ""}`}
+            {data.winner ? <CheckCircle2 className="size-4" /> : <XCircle className="size-4" />}
+            {data.winner ? `Active layer: ${data.winner}` : "No layer returned results"}
           </div>
 
-          <div className="rounded-2xl border border-border bg-surface p-4">
-            <h2 className="mb-2 inline-flex items-center gap-2 font-display text-sm font-semibold">
-              <KeyRound className="size-4 text-primary" />
-              Credentials
-            </h2>
-            <Row label="API key" value={data.keyPresent ? (data.keyHint ?? "set") : "missing"} />
-            <Row label="Engine ID (CX)" value={data.cxPresent ? (data.cxHint ?? "set") : "missing"} />
-          </div>
+          <p className="text-[0.7rem] text-muted-foreground">
+            Probe query: <span className="text-foreground">{data.query}</span>
+          </p>
 
-          <div className="rounded-2xl border border-border bg-surface p-4">
-            <h2 className="mb-2 inline-flex items-center gap-2 font-display text-sm font-semibold">
-              <Activity className="size-4 text-primary" />
-              Live response
-            </h2>
-            <Row label="HTTP status" value={data.httpStatus ? String(data.httpStatus) : "no response"} />
-            <Row label="Reason" value={data.reason ?? "—"} />
-            <Row label="Results returned" value={data.itemCount === null ? "—" : String(data.itemCount)} />
-            <Row label="Google message" value={data.message ?? "—"} />
-          </div>
-
-          <div className="rounded-2xl border border-dashed border-border bg-surface-2 p-4">
-            <h2 className="font-display text-sm font-semibold">What to do</h2>
-            <p className="mt-1 text-[0.78rem] leading-relaxed text-muted-foreground">{data.hint}</p>
-          </div>
+          {data.layers.map((layer, i) => (
+            <div key={layer.name} className="rounded-2xl border border-border bg-surface p-4">
+              <h2 className="mb-2 inline-flex items-center gap-2 font-display text-sm font-semibold">
+                <Layers className="size-4 text-primary" />
+                {i + 1}. {layer.label}
+              </h2>
+              <Row label="Configured" value={layer.configured ? "yes" : "no (key missing)"} />
+              <Row label="Status" value={layer.ok ? "healthy" : "no results"} />
+              <Row label="Results" value={String(layer.count)} />
+              <Row label="Latency" value={`${layer.ms}ms`} />
+              <Row label="Sample" value={layer.sample ?? "—"} />
+              <p className="mt-2 text-[0.72rem] leading-relaxed text-muted-foreground">
+                {layer.note}
+              </p>
+            </div>
+          ))}
         </section>
       ) : null}
     </main>
