@@ -307,6 +307,36 @@ export async function fetchFinancials(name: string, year: number | null): Promis
 }
 
 /* ------------------------------------------------------------------ */
+/* Sacnilk box-office verdict (snippet parsing via the waterfall)      */
+/* ------------------------------------------------------------------ */
+
+const MONEY_RE =
+  /(?:₹|Rs\.?|\$|US\$)\s?[\d,.]+\s?(?:crore|cr|lakh|billion|million|bn|mn)?/i;
+
+/** Normalises any money-ish string into one clean, card-ready label. */
+export function normalizeMoney(value: string | null): string | null {
+  if (!value) return null;
+  const match = MONEY_RE.exec(value.replace(/\s+/g, " "));
+  const cleaned = (match?.[0] ?? value).replace(/\s+/g, " ").trim();
+  return cleaned.length > 1 ? cleaned.slice(0, 60) : null;
+}
+
+export async function fetchSacnilkBoxOffice(
+  name: string,
+  year: number | null,
+): Promise<string | null> {
+  const items = await cse(
+    `site:sacnilk.com "${name}"${year ? ` ${year}` : ""} box office collection`,
+    3,
+  );
+  for (const item of items) {
+    const money = normalizeMoney(`${item.title} ${item.snippet ?? ""}`);
+    if (money) return money;
+  }
+  return null;
+}
+
+/* ------------------------------------------------------------------ */
 /* Orchestration                                                       */
 /* ------------------------------------------------------------------ */
 
@@ -324,11 +354,11 @@ export async function resolveTitle(
   const year = yearMatch ? Number(yearMatch[1]) : null;
   const cleanName = name.replace(/\s*\(\d{4}\)\s*/, "").trim();
 
-  const [availability, ratings, financials] = await Promise.all([
-    findAvailability(cleanName, filters.platform),
-    findRatings(cleanName, year),
-    fetchFinancials(cleanName, year),
-  ]);
+  const availability = await findAvailability(cleanName, filters.platform);
+  const ratings = await findRatings(cleanName, year);
+  const financials = await fetchFinancials(cleanName, year);
+  const sacnilk = financials.boxOffice ? null : await fetchSacnilkBoxOffice(cleanName, year);
+
 
   const chosen = pickPlatform(availability, filters.platform);
   const anyHindi = availability.some((a) => a.hindi);
