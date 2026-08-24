@@ -153,34 +153,16 @@ export async function parseQueryWithGemini(
 }
 
 /* ------------------------------------------------------------------ */
-/* Step B — Google Custom Search availability + ratings                */
+/* Step B — Waterfall web search: availability + ratings + verdicts    */
 /* ------------------------------------------------------------------ */
 
 type CseItem = { title: string; link: string; snippet?: string };
 
+/** Single entry point into the sequential waterfall (DDG -> Google -> SerpApi -> Serper). */
 async function cse(query: string, num = 5): Promise<CseItem[]> {
-  const key = process.env["GOOGLE_CSE_API_KEY"];
-  const cx = process.env["GOOGLE_CSE_CX"];
-  if (!key || !cx) return [];
-
-  const url = new URL("https://www.googleapis.com/customsearch/v1");
-  url.searchParams.set("key", key);
-  url.searchParams.set("cx", cx);
-  url.searchParams.set("q", query);
-  url.searchParams.set("num", String(num));
-
-  try {
-    const res = await fetch(url);
-    if (!res.ok) {
-      console.error(`Google CSE ${res.status}: ${(await res.text()).slice(0, 200)}`);
-      return [];
-    }
-    const data = (await res.json()) as { items?: CseItem[] };
-    return data.items ?? [];
-  } catch (error) {
-    console.error("Google CSE request failed", error);
-    return [];
-  }
+  const { webSearch } = await import("./search-engines.server");
+  const results = await webSearch(query, num);
+  return results.map((r) => ({ title: r.title, link: r.link, snippet: r.snippet }));
 }
 
 const HINDI_HINTS = ["hindi", "हिन्दी", "हिंदी", "dubbed", "dual audio"];
