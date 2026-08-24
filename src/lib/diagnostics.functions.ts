@@ -1,22 +1,26 @@
 import { createServerFn } from "@tanstack/react-start";
 
-export type CseDiagnostic = {
-  keyPresent: boolean;
-  cxPresent: boolean;
-  keyHint: string | null;
-  cxHint: string | null;
-  httpStatus: number | null;
-  reason: string | null;
-  message: string | null;
-  itemCount: number | null;
+export type LayerDiagnostic = {
+  name: string;
+  label: string;
+  configured: boolean;
   ok: boolean;
-  hint: string;
+  count: number;
+  ms: number;
+  sample: string | null;
+  note: string;
 };
 
-/** Live connection check for the Google Custom Search key + engine id (CX). */
-export const checkCseStatus = createServerFn({ method: "POST" }).handler(
-  async (): Promise<CseDiagnostic> => {
+export type WaterfallDiagnostic = {
+  query: string;
+  winner: string | null;
+  layers: LayerDiagnostic[];
+};
+
+/** Probes every waterfall layer independently so failures are visible per layer. */
+export const checkSearchWaterfall = createServerFn({ method: "POST" }).handler(
+  async (): Promise<WaterfallDiagnostic> => {
     const diag = await import("./diagnostics.server");
-    return diag.runCseDiagnostic();
+    return diag.runWaterfallDiagnostic();
   },
 );
