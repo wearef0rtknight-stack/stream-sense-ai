@@ -375,8 +375,8 @@ export async function resolveTitle(
     hindiVerifiedOn: hindiStatus === "verified" ? new Date().toISOString() : null,
     ratingRt: ratings.rt,
     ratingImdb: ratings.imdb,
-    budget: financials.budget,
-    boxOffice: financials.boxOffice,
+    budget: normalizeMoney(financials.budget),
+    boxOffice: normalizeMoney(financials.boxOffice) ?? sacnilk,
     analysis: parsed.analysis,
     availability,
   };
