@@ -281,14 +281,25 @@ export const WATERFALL_LAYERS = [
   { name: "serper" as const, label: "Serper.dev (SERPER_API_KEY)", run: searchSerper },
 ];
 
+/** Short-lived cooldown so a blocked layer is not re-probed on every query. */
+const COOLDOWN_MS = 5 * 60_000;
+const cooldownUntil = new Map<string, number>();
+
 /**
  * Sequential waterfall. Each layer runs only after the previous one returned
- * nothing usable — never in parallel.
+ * nothing usable — never in parallel. Layers that just failed are skipped
+ * until their cooldown expires, then retried from the top again.
  */
 export async function webSearch(query: string, limit = 5): Promise<WebResult[]> {
+  const now = Date.now();
   for (const layer of WATERFALL_LAYERS) {
+    if ((cooldownUntil.get(layer.name) ?? 0) > now) continue;
     const results = await layer.run(query, limit);
-    if (results.length) return results;
+    if (results.length) {
+      cooldownUntil.delete(layer.name);
+      return results;
+    }
+    cooldownUntil.set(layer.name, Date.now() + COOLDOWN_MS);
   }
   return [];
 }
