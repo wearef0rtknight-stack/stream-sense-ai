@@ -2,25 +2,25 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { Activity, Flame, Loader2, RotateCcw, SlidersHorizontal, Sparkles, Zap } from "lucide-react";
+import {
+  Activity,
+  Flame,
+  Loader2,
+  RotateCcw,
+  SlidersHorizontal,
+  Sparkles,
+  Zap,
+} from "lucide-react";
 import { searchOtt } from "@/lib/ott.functions";
 import { LiveResultCard } from "@/components/LiveResultCard";
-import {
-  AUDIO,
-  CATEGORIES,
-  PLATFORMS,
-  SUGGESTED_TAGS,
-  TITLES,
-  type Title,
-} from "@/data/catalog";
+import { AUDIO, CATEGORIES, PLATFORMS, SUGGESTED_TAGS } from "@/data/catalog";
 import { PillRail } from "@/components/PillRail";
 import { SmartSearch } from "@/components/SmartSearch";
-import { TitleCard } from "@/components/TitleCard";
 import { useTaste } from "@/hooks/useTaste";
 
 const TITLE = "Dubbed — AI OTT & Streaming Language Finder";
 const DESC =
-  "Find where to stream any movie, series or anime with verified Hindi dubbed audio. Filter by platform, language and taste in seconds.";
+  "Find where to stream any movie, series or anime with verified Hindi dubbed audio. Live availability, ratings and box office in seconds.";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -29,6 +29,8 @@ export const Route = createFileRoute("/")({
       { name: "description", content: DESC },
       { property: "og:title", content: TITLE },
       { property: "og:description", content: DESC },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Home,
@@ -43,13 +45,12 @@ function Home() {
   const [plats, setPlats] = useState<string[]>([]);
   const [audio, setAudio] = useState<string[]>(["Only Hindi Dubbed"]);
   const [tags, setTags] = useState<string[]>([]);
-  const { bump, reset, hydrated, topCategories, topGenres, score, interactions, taste } =
-    useTaste();
+  const { bump, reset, hydrated, topCategories, topGenres, interactions, taste } = useTaste();
 
   const runSearch = useServerFn(searchOtt);
-  const liveQuery = tags.join(" ").trim();
   const platform = plats[0] ?? "";
   const language = audio.includes("Only Hindi Dubbed") ? "Hindi" : audio.join(", ");
+  const liveQuery = useMemo(() => [...tags, ...cats].join(" ").trim(), [tags, cats]);
 
   const live = useQuery({
     queryKey: ["ott-search", liveQuery, platform, language],
@@ -58,53 +59,34 @@ function Home() {
     queryFn: () => runSearch({ data: { query: liveQuery, platform, language } }),
   });
 
-  const results = useMemo(() => {
-    return TITLES.filter((t) => {
-      if (cats.length && !cats.includes(t.category)) return false;
-      if (plats.length && !plats.includes(t.platform)) return false;
-      if (audio.length && !audio.some((a) => t.audio.includes(a as never))) return false;
-      if (tags.length) {
-        const hay = `${t.name} ${t.genres.join(" ")} ${t.tags.join(" ")}`.toLowerCase();
-        if (!tags.some((tag) => hay.includes(tag.toLowerCase()))) return false;
-      }
-      return true;
-    });
-  }, [cats, plats, audio, tags]);
-
-  const recommended = useMemo(() => {
-    if (!hydrated || interactions === 0) return [];
-    return [...TITLES]
-      .map((t) => ({ t, s: score(t.category, t.genres, t.platform) }))
-      .filter((x) => x.s > 0)
-      .sort((a, b) => b.s - a.s)
-      .slice(0, 4)
-      .map((x) => x.t);
-  }, [hydrated, interactions, score]);
-
-  const openTitle = (t: Title) => {
-    bump({ category: t.category, genres: t.genres, platform: t.platform, weight: 1 });
-  };
+  const results = live.data?.results ?? [];
+  const liveError = live.data && "error" in live.data ? live.data.error : undefined;
 
   const addTag = (tag: string) => {
     setTags((prev) => (prev.includes(tag) ? prev : [...prev, tag]));
     bump({ search: tag, weight: 1 });
   };
 
+  const tasteChips = useMemo(() => {
+    if (!hydrated || interactions === 0) return [];
+    return [...topCategories, ...topGenres, ...taste.searches.slice(0, 3)]
+      .filter((v, i, arr) => v && arr.indexOf(v) === i)
+      .slice(0, 6);
+  }, [hydrated, interactions, topCategories, topGenres, taste.searches]);
+
   const activeFilters = cats.length + plats.length + audio.length + tags.length;
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-md pb-16">
-      {/* Header */}
       <header className="halo relative px-5 pb-6 pt-9">
         <p className="text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-primary">
           AI Language Finder
         </p>
         <h1 className="mt-2 font-display text-[2rem] font-bold leading-[1.1]">
-          Find it in the{" "}
-          <span className="text-gradient-neon">language</span> you actually watch in.
+          Find it in the <span className="text-gradient-neon">language</span> you actually watch in.
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Verified Hindi dubs, real platform availability, zero guesswork.
+          Verified Hindi dubs, live platform availability, zero guesswork.
         </p>
       </header>
 
@@ -146,72 +128,8 @@ function Home() {
           />
         </div>
 
-        {/* Live AI results */}
-        {liveQuery.length >= 2 ? (
-          <section className="space-y-3">
-            <div className="flex items-center justify-between px-5">
-              <h2 className="inline-flex items-center gap-2 font-display text-lg font-semibold">
-                <Zap className="size-4 text-neon" />
-                Live AI results
-              </h2>
-              <span className="inline-flex items-center gap-1 text-[0.68rem] text-muted-foreground">
-                {live.isFetching ? (
-                  <>
-                    <Loader2 className="size-3 animate-spin" />
-                    Searching…
-                  </>
-                ) : live.data ? (
-                  <>
-                    {live.data.source === "cache" ? "cached" : live.data.source} · {live.data.ms}ms
-                  </>
-                ) : null}
-              </span>
-            </div>
-
-            {live.data?.analysis ? (
-              <p className="px-5 text-[0.75rem] leading-relaxed text-muted-foreground">
-                {live.data.analysis}
-              </p>
-            ) : null}
-
-            <div className="space-y-3 px-5">
-              {live.isError ? (
-                <p className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4 text-xs text-destructive">
-                  Live search failed. Please try again.
-                </p>
-              ) : null}
-              {live.data && "error" in live.data && live.data.error ? (
-                <p className="rounded-2xl border border-warn/40 bg-warn/10 p-4 text-xs text-warn">
-                  {live.data.error}
-                </p>
-              ) : null}
-              {live.data?.results.map((r) => (
-                <LiveResultCard
-                  key={r.slug}
-                  title={r}
-                  onOpen={() => bump(r.platform ? { search: r.name, platform: r.platform, weight: 1 } : { search: r.name, weight: 1 })}
-                />
-              ))}
-              {live.data && !live.isFetching && live.data.results.length === 0 && !("error" in live.data && live.data.error) ? (
-                <p className="rounded-2xl border border-dashed border-border bg-surface p-4 text-center text-xs text-muted-foreground">
-                  No live matches — try a different phrase.
-                </p>
-              ) : null}
-            </div>
-            <div className="px-5">
-              <Link
-                to="/diagnostics"
-                className="inline-flex items-center gap-1 text-[0.68rem] text-muted-foreground underline-offset-4 hover:text-primary hover:underline"
-              >
-                <Activity className="size-3" />
-                Connection diagnostics
-              </Link>
-            </div>
-          </section>
-        ) : null}
-
         {/* Based on your taste */}
-        {recommended.length > 0 ? (
+        {tasteChips.length > 0 ? (
           <section className="space-y-3">
             <div className="flex items-center justify-between px-5">
               <h2 className="inline-flex items-center gap-2 font-display text-lg font-semibold">
@@ -229,28 +147,18 @@ function Home() {
             </div>
             <p className="px-5 text-[0.72rem] text-muted-foreground">
               Learned locally from{" "}
-              <span className="text-foreground">{taste.searches.length} searches</span> and your
-              most-opened {topCategories[0] ? `${topCategories[0]} ` : ""}
-              {topGenres[0] ? `· ${topGenres[0]}` : "picks"}.
+              <span className="text-foreground">{taste.searches.length} searches</span> — tap to
+              search again.
             </p>
-            <div className="rail pb-2">
-              {recommended.map((t) => (
+            <div className="rail px-5 pb-2">
+              {tasteChips.map((chip) => (
                 <button
-                  key={t.id}
+                  key={chip}
                   type="button"
-                  onClick={() => openTitle(t)}
-                  className="w-[8.5rem] text-left"
+                  onClick={() => addTag(chip)}
+                  className="lift shrink-0 rounded-full border border-border bg-surface px-4 py-2 text-xs font-medium text-foreground"
                 >
-                  <img
-                    src={t.poster}
-                    alt={`${t.name} poster`}
-                    loading="lazy"
-                    className="h-[12rem] w-full rounded-xl border border-border object-cover lift"
-                  />
-                  <p className="mt-1.5 truncate text-xs font-medium text-foreground">{t.name}</p>
-                  <p className="truncate text-[0.65rem] text-muted-foreground">
-                    {t.platform} · {t.category}
-                  </p>
+                  {chip}
                 </button>
               ))}
               <span className="w-1" aria-hidden />
@@ -268,30 +176,88 @@ function Home() {
           </section>
         )}
 
-        {/* Results */}
+        {/* Live results */}
         <section className="space-y-3">
           <div className="flex items-center justify-between px-5">
             <h2 className="inline-flex items-center gap-2 font-display text-lg font-semibold">
               <Flame className="size-4 text-primary" />
-              {results.length} match{results.length === 1 ? "" : "es"}
+              {liveQuery.length >= 2
+                ? `${results.length} match${results.length === 1 ? "" : "es"}`
+                : "Live results"}
             </h2>
-            <span className="inline-flex items-center gap-1 text-[0.68rem] text-muted-foreground">
-              <SlidersHorizontal className="size-3" />
-              {activeFilters} filter{activeFilters === 1 ? "" : "s"}
+            <span className="inline-flex items-center gap-2 text-[0.68rem] text-muted-foreground">
+              {live.isFetching ? (
+                <>
+                  <Loader2 className="size-3 animate-spin" />
+                  Searching…
+                </>
+              ) : live.data ? (
+                <>
+                  <Zap className="size-3 text-neon" />
+                  {live.data.source === "cache" ? "cached" : live.data.source} · {live.data.ms}ms
+                </>
+              ) : (
+                <>
+                  <SlidersHorizontal className="size-3" />
+                  {activeFilters} filter{activeFilters === 1 ? "" : "s"}
+                </>
+              )}
             </span>
           </div>
 
+          {live.data?.analysis ? (
+            <p className="px-5 text-[0.75rem] leading-relaxed text-muted-foreground">
+              {live.data.analysis}
+            </p>
+          ) : null}
+
           <div className="space-y-3 px-5">
-            {results.length === 0 ? (
+            {liveQuery.length < 2 ? (
               <div className="rounded-2xl border border-dashed border-border bg-surface p-6 text-center">
-                <p className="font-display text-sm font-semibold">Nothing matches yet</p>
+                <p className="font-display text-sm font-semibold">Describe what you want</p>
                 <p className="mt-1 text-[0.75rem] text-muted-foreground">
-                  Loosen a pill row or drop a keyword tag.
+                  Type a phrase like “prison se bhagne wale group” and pick your filters.
                 </p>
               </div>
-            ) : (
-              results.map((t) => <TitleCard key={t.id} title={t} onOpen={openTitle} />)
-            )}
+            ) : null}
+            {live.isError ? (
+              <p className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4 text-xs text-destructive">
+                Live search failed. Please try again.
+              </p>
+            ) : null}
+            {liveError ? (
+              <p className="rounded-2xl border border-warn/40 bg-warn/10 p-4 text-xs text-warn">
+                {liveError}
+              </p>
+            ) : null}
+            {results.map((r) => (
+              <LiveResultCard
+                key={r.slug}
+                title={r}
+                onOpen={() =>
+                  bump(
+                    r.platform
+                      ? { search: r.name, platform: r.platform, weight: 1 }
+                      : { search: r.name, weight: 1 },
+                  )
+                }
+              />
+            ))}
+            {liveQuery.length >= 2 && live.data && !live.isFetching && results.length === 0 && !liveError ? (
+              <p className="rounded-2xl border border-dashed border-border bg-surface p-4 text-center text-xs text-muted-foreground">
+                No live matches — try a different phrase.
+              </p>
+            ) : null}
+          </div>
+
+          <div className="px-5">
+            <Link
+              to="/diagnostics"
+              className="inline-flex items-center gap-1 text-[0.68rem] text-muted-foreground underline-offset-4 hover:text-primary hover:underline"
+            >
+              <Activity className="size-3" />
+              Search engine diagnostics
+            </Link>
           </div>
         </section>
       </div>
