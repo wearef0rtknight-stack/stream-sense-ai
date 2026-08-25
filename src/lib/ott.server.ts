@@ -146,7 +146,7 @@ export async function parseQueryWithGemini(
   }
 
   return {
-    titles: (parsed.titles ?? []).filter((t) => typeof t === "string" && t.trim()).slice(0, 6),
+    titles: (parsed.titles ?? []).filter((t) => typeof t === "string" && t.trim()).slice(0, 4),
     category: parsed.category ?? null,
     analysis: parsed.analysis ?? "",
   };
