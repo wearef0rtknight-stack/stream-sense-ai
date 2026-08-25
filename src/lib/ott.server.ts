@@ -172,29 +172,41 @@ function looksHindi(item: CseItem): boolean {
   return HINDI_HINTS.some((hint) => hay.includes(hint));
 }
 
-/** site:<domain> "Hindi" "<title>" loop across the top platforms. */
+function platformForLink(link: string): string | null {
+  const entry = Object.entries(PLATFORM_DOMAINS).find(([, domain]) => link.includes(domain));
+  return entry?.[0] ?? null;
+}
+
+/**
+ * One waterfall query per title (or per filtered platform) instead of a
+ * six-query loop — keeps latency low and free quotas intact.
+ */
 export async function findAvailability(
   name: string,
   platformFilter: string,
 ): Promise<Availability[]> {
-  const platforms = platformFilter
-    ? Object.keys(PLATFORM_DOMAINS).filter((p) => p === platformFilter)
-    : Object.keys(PLATFORM_DOMAINS);
+  const query = platformFilter
+    ? `site:${PLATFORM_DOMAINS[platformFilter] ?? ""} "Hindi" "${name}"`
+    : `"${name}" watch online Hindi ${Object.values(PLATFORM_DOMAINS)
+        .map((d) => `site:${d}`)
+        .join(" OR ")}`;
 
-  const results = await Promise.all(
-    platforms.map(async (platform) => {
-      const domain = PLATFORM_DOMAINS[platform]!;
-      const items = await cse(`site:${domain} "Hindi" "${name}"`, 3);
-      const match =
-        items.find((i) => i.title.toLowerCase().includes(name.toLowerCase().slice(0, 12))) ??
-        items[0];
-      if (!match) return null;
-      const entry: Availability = { platform, url: match.link, hindi: items.some(looksHindi) };
-      return entry;
-    }),
-  );
+  const items = await cse(query, 8);
+  const byPlatform = new Map<string, Availability>();
 
-  return results.filter((r): r is Availability => r !== null);
+  for (const item of items) {
+    const platform = platformFilter ?? "" ? platformFilter : platformForLink(item.link);
+    if (!platform) continue;
+    const existing = byPlatform.get(platform);
+    const hindi = looksHindi(item);
+    if (!existing) {
+      byPlatform.set(platform, { platform, url: item.link, hindi });
+    } else if (hindi && !existing.hindi) {
+      byPlatform.set(platform, { platform, url: item.link, hindi: true });
+    }
+  }
+
+  return [...byPlatform.values()];
 }
 
 export async function findRatings(
@@ -202,13 +214,19 @@ export async function findRatings(
   year: number | null,
 ): Promise<{ rt: number | null; imdb: number | null }> {
   const suffix = year ? ` ${year}` : "";
-  const [rtItems, imdbItems] = await Promise.all([
-    cse(`site:rottentomatoes.com "${name}"${suffix}`, 3),
-    cse(`site:imdb.com "${name}"${suffix}`, 3),
-  ]);
+  const items = await cse(
+    `"${name}"${suffix} rating site:rottentomatoes.com OR site:imdb.com`,
+    8,
+  );
 
-  const rtHay = rtItems.map((i) => `${i.title} ${i.snippet ?? ""}`).join(" ");
-  const imdbHay = imdbItems.map((i) => `${i.title} ${i.snippet ?? ""}`).join(" ");
+  const rtHay = items
+    .filter((i) => i.link.includes("rottentomatoes.com"))
+    .map((i) => `${i.title} ${i.snippet ?? ""}`)
+    .join(" ");
+  const imdbHay = items
+    .filter((i) => i.link.includes("imdb.com"))
+    .map((i) => `${i.title} ${i.snippet ?? ""}`)
+    .join(" ");
 
   const rtMatch = /(\d{1,3})\s*%/.exec(rtHay);
   const imdbMatch = /(\d(?:\.\d)?)\s*\/\s*10/.exec(imdbHay);
