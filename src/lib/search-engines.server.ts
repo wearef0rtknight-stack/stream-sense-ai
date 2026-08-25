@@ -110,71 +110,99 @@ async function fetchText(url: string, init?: RequestInit): Promise<string | null
 
 /* ---------------- Layer 1 — DuckDuckGo HTML scraper ---------------- */
 
+function isBotChallenge(html: string): boolean {
+  return /anomaly|challenge-form|captcha|unusual traffic|enablejs/i.test(html);
+}
+
+function parseDuckDuckGo(html: string, limit: number): WebResult[] {
+  const results: WebResult[] = [];
+  const anchorRe =
+    /<a[^>]+class="[^"]*(?:result__a|result-link)[^"]*"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g;
+  let match: RegExpExecArray | null;
+  while ((match = anchorRe.exec(html)) !== null) {
+    const link = normalizeLink(decodeEntities(match[1] ?? ""));
+    if (!link) continue;
+    const after = html.slice(anchorRe.lastIndex, anchorRe.lastIndex + 2500);
+    const snippet =
+      /class="[^"]*(?:result__snippet|result-snippet)[^"]*"[^>]*>([\s\S]*?)<\/(?:a|td|div)>/.exec(
+        after,
+      );
+    results.push({
+      title: decodeEntities(match[2] ?? ""),
+      link,
+      snippet: snippet?.[1] ? decodeEntities(snippet[1]) : "",
+      engine: "duckduckgo",
+    });
+    if (results.length >= limit * 2) break;
+  }
+  return dedupe(results, limit);
+}
+
 export async function searchDuckDuckGo(query: string, limit: number): Promise<WebResult[]> {
+  // 1a. Lite endpoint (GET), 1b. classic HTML endpoint (POST).
+  const lite = await fetchText(
+    `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}&kl=in-en`,
+    { headers: scrapeHeaders() },
+  );
+  if (lite && !isBotChallenge(lite)) {
+    const parsed = parseDuckDuckGo(lite, limit);
+    if (parsed.length) return parsed;
+  }
+
   const html = await fetchText("https://html.duckduckgo.com/html/", {
     method: "POST",
     headers: { ...scrapeHeaders(), "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ q: query, kl: "in-en" }).toString(),
   });
-  if (!html) return [];
-
-  const results: WebResult[] = [];
-  const blockRe = /<div class="result[^"]*"[\s\S]*?(?=<div class="result[^"]*"|<\/body>)/g;
-  const blocks = html.match(blockRe) ?? [html];
-
-  for (const block of blocks) {
-    const anchor = /<a[^>]+class="[^"]*result__a[^"]*"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/.exec(
-      block,
-    );
-    if (!anchor?.[1]) continue;
-    const link = normalizeLink(decodeEntities(anchor[1]));
-    if (!link) continue;
-    const snippetMatch = /class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>/.exec(block);
-    results.push({
-      title: decodeEntities(anchor[2] ?? ""),
-      link,
-      snippet: snippetMatch?.[1] ? decodeEntities(snippetMatch[1]) : "",
-      engine: "duckduckgo",
-    });
-    if (results.length >= limit * 2) break;
-  }
-
-  return dedupe(results, limit);
+  if (!html || isBotChallenge(html)) return [];
+  return parseDuckDuckGo(html, limit);
 }
 
 /* ---------------- Layer 2 — Google web scraper ---------------- */
 
-export async function searchGoogleScrape(query: string, limit: number): Promise<WebResult[]> {
-  const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&num=${Math.min(
-    20,
-    limit * 3,
-  )}&hl=en&gl=in&pws=0`;
-  const html = await fetchText(url, { headers: scrapeHeaders() });
-  if (!html) return [];
+const GOOGLE_JUNK = /google\.[a-z.]+|gstatic\.com|googleusercontent\.com|schema\.org/i;
 
-  const results: WebResult[] = [];
-  const anchorRe = /<a href="(\/url\?q=[^"]+|https?:\/\/[^"]+)"[^>]*>([\s\S]{0,400}?)<\/a>/g;
-  let match: RegExpExecArray | null;
-  while ((match = anchorRe.exec(html)) !== null) {
-    const link = normalizeLink(decodeEntities(match[1] ?? ""));
-    if (!link) continue;
-    const heading = /<h3[^>]*>([\s\S]*?)<\/h3>/.exec(match[2] ?? "");
-    const title = decodeEntities(heading?.[1] ?? match[2] ?? "");
-    if (!title || title.length < 3) continue;
-    // Snippet: the nearest following text block
-    const after = html.slice(anchorRe.lastIndex, anchorRe.lastIndex + 1200);
-    const snip = /<div[^>]*>([^<]{60,300})<\/div>/.exec(after);
-    results.push({
-      title,
-      link,
-      snippet: snip?.[1] ? decodeEntities(snip[1]) : "",
-      engine: "google",
-    });
-    if (results.length >= limit * 2) break;
+export async function searchGoogleScrape(query: string, limit: number): Promise<WebResult[]> {
+  const num = Math.min(20, limit * 3);
+  const q = encodeURIComponent(query);
+  // Rotating routing pattern: basic-HTML endpoints first, then the standard one.
+  const endpoints = [
+    `https://www.google.com/search?q=${q}&num=${num}&hl=en&gl=in&gbv=1&pws=0`,
+    `https://www.google.com/search?q=${q}&num=${num}&hl=en&gl=in&udm=14`,
+    `https://www.google.com/search?q=${q}&num=${num}&hl=en&gl=in&pws=0`,
+  ];
+
+  for (const url of endpoints) {
+    const html = await fetchText(url, { headers: scrapeHeaders() });
+    if (!html || isBotChallenge(html)) continue;
+
+    const results: WebResult[] = [];
+    const anchorRe = /<a[^>]+href="(\/url\?q=[^"]+|https?:\/\/[^"]+)"[^>]*>([\s\S]{0,600}?)<\/a>/g;
+    let match: RegExpExecArray | null;
+    while ((match = anchorRe.exec(html)) !== null) {
+      const link = normalizeLink(decodeEntities(match[1] ?? ""));
+      if (!link || GOOGLE_JUNK.test(link)) continue;
+      const heading = /<h3[^>]*>([\s\S]*?)<\/h3>/.exec(match[2] ?? "");
+      const title = decodeEntities(heading?.[1] ?? match[2] ?? "");
+      if (title.length < 4) continue;
+      const after = html.slice(anchorRe.lastIndex, anchorRe.lastIndex + 1200);
+      const snip = /<(?:div|span)[^>]*>([^<]{60,300})<\/(?:div|span)>/.exec(after);
+      results.push({
+        title,
+        link,
+        snippet: snip?.[1] ? decodeEntities(snip[1]) : "",
+        engine: "google",
+      });
+      if (results.length >= limit * 2) break;
+    }
+
+    const deduped = dedupe(results, limit);
+    if (deduped.length) return deduped;
   }
 
-  return dedupe(results, limit);
+  return [];
 }
+
 
 /* ---------------- Layer 3 — SerpApi ---------------- */
 
